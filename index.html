@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diary Chain - Immutable Blockchain Journal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Lora:wght@400;500;600&display=swap');
+        
+        body {
+            font-family: 'Lora', serif;
+            background: linear-gradient(135deg, #fdfbf7 0%, #f5ebe0 100%);
+        }
+        
+        .navbar-brand {
+            font-family: 'Libre Baskerville', serif;
+        }
+        
+        .paper-texture {
+            background: #fffef9;
+            box-shadow: 0 4px 6px rgba(101, 67, 33, 0.1), 0 2px 4px rgba(101, 67, 33, 0.06);
+        }
+        
+        .ink-text {
+            color: #2c1810;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #8b6f47 0%, #6b5638 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(107, 86, 56, 0.3);
+        }
+        
+        .entry-card {
+            border-left: 4px solid #8b6f47;
+            background: #fffef9;
+            transition: all 0.3s ease;
+        }
+        
+        .entry-card:hover {
+            box-shadow: 0 8px 16px rgba(101, 67, 33, 0.15);
+            transform: translateX(4px);
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #8b6f47;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        textarea {
+            resize: vertical;
+            font-family: 'Lora', serif;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Navigation -->
+    <nav class="paper-texture border-b-2 border-amber-800 sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <h1 class="navbar-brand text-3xl font-bold ink-text">📖 Diary Chain</h1>
+                <div class="flex gap-4 items-center">
+                    <button onclick="showSection('home')" class="px-4 py-2 ink-text hover:text-amber-800 transition font-medium">Home</button>
+                    <button onclick="showSection('write')" class="px-4 py-2 ink-text hover:text-amber-800 transition font-medium">Write Entry</button>
+                    <button onclick="showSection('timeline')" class="px-4 py-2 ink-text hover:text-amber-800 transition font-medium">My Timeline</button>
+                    <button id="connectBtn" onclick="connectWallet()" class="btn-primary text-white px-6 py-2 rounded-lg font-medium shadow-lg">
+                        Connect Wallet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-8">
+        <!-- Home Section -->
+        <div id="homeSection" class="section">
+            <div class="max-w-4xl mx-auto">
+                <div class="paper-texture rounded-lg p-12 text-center">
+                    <h2 class="text-5xl font-bold ink-text mb-6 navbar-brand">Welcome to Diary Chain</h2>
+                    <p class="text-xl ink-text mb-8 leading-relaxed">
+                        Your thoughts, forever preserved on the Celo blockchain. Write immutable diary entries that stand the test of time.
+                    </p>
+                    <div class="grid md:grid-cols-3 gap-6 mt-12">
+                        <div class="p-6 bg-amber-50 rounded-lg border-2 border-amber-200">
+                            <div class="text-4xl mb-3">🔒</div>
+                            <h3 class="font-bold text-lg mb-2 ink-text">Immutable</h3>
+                            <p class="text-sm ink-text">Once written, your entries can never be changed or deleted</p>
+                        </div>
+                        <div class="p-6 bg-amber-50 rounded-lg border-2 border-amber-200">
+                            <div class="text-4xl mb-3">⏰</div>
+                            <h3 class="font-bold text-lg mb-2 ink-text">Timestamped</h3>
+                            <p class="text-sm ink-text">Every entry is permanently marked with blockchain timestamp</p>
+                        </div>
+                        <div class="p-6 bg-amber-50 rounded-lg border-2 border-amber-200">
+                            <div class="text-4xl mb-3">🌍</div>
+                            <h3 class="font-bold text-lg mb-2 ink-text">Decentralized</h3>
+                            <p class="text-sm ink-text">Your journal lives on Celo's distributed network</p>
+                        </div>
+                    </div>
+                    <button onclick="showSection('write')" class="btn-primary text-white px-8 py-3 rounded-lg font-medium shadow-lg mt-8 text-lg">
+                        Start Writing →
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Write Entry Section -->
+        <div id="writeSection" class="section hidden">
+            <div class="max-w-3xl mx-auto">
+                <div class="paper-texture rounded-lg p-8">
+                    <h2 class="text-3xl font-bold ink-text mb-2 navbar-brand">Write a New Entry</h2>
+                    <p class="text-sm text-amber-800 mb-6 italic">Remember: Once saved to the blockchain, this entry becomes permanent and immutable.</p>
+                    
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium ink-text mb-2">Your Thoughts</label>
+                        <textarea 
+                            id="entryContent" 
+                            rows="12" 
+                            class="w-full px-4 py-3 border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-600 ink-text bg-white"
+                            placeholder="What's on your mind today? Share your thoughts, experiences, or reflections..."
+                        ></textarea>
+                        <div class="text-right text-sm text-gray-500 mt-1">
+                            <span id="charCount">0</span> characters
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4">
+                        <button 
+                            id="saveBtn" 
+                            onclick="saveEntry()" 
+                            class="btn-primary text-white px-8 py-3 rounded-lg font-medium shadow-lg flex-1 flex items-center justify-center gap-2"
+                        >
+                            <span>💾 Save to Chain</span>
+                        </button>
+                        <button 
+                            onclick="document.getElementById('entryContent').value = ''; updateCharCount();" 
+                            class="px-6 py-3 border-2 border-amber-800 ink-text rounded-lg font-medium hover:bg-amber-50 transition"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                    
+                    <div id="writeStatus" class="mt-4 hidden p-4 rounded-lg"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline Section -->
+        <div id="timelineSection" class="section hidden">
+            <div class="max-w-4xl mx-auto">
+                <div class="paper-texture rounded-lg p-8">
+                    <h2 class="text-3xl font-bold ink-text mb-6 navbar-brand">My Diary Timeline</h2>
+                    
+                    <div id="timelineContent">
+                        <div class="text-center py-12 text-gray-500">
+                            <div class="text-6xl mb-4">📔</div>
+                            <p>Connect your wallet to view your entries</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="paper-texture border-t-2 border-amber-800 mt-16">
+        <div class="container mx-auto px-4 py-6 text-center ink-text">
+            <p class="text-sm">Built on <span class="font-bold text-amber-800">Celo Mainnet</span> | Chain ID: 42220</p>
+            <p class="text-xs mt-2 text-gray-600">Your immutable journal on the blockchain</p>
+        </div>
+    </footer>
+
+    <script>
+        // Contract Configuration
+        const CONTRACT_ADDRESS = "YOUR_DEPLOYED_CONTRACT_ADDRESS_HERE";
+        const CONTRACT_ABI = [
+            {
+                "inputs": [{"internalType": "string", "name": "_content", "type": "string"}],
+                "name": "addEntry",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "address", "name": "_user", "type": "address"}],
+                "name": "getEntries",
+                "outputs": [
+                    {
+                        "components": [
+                            {"internalType": "string", "name": "content", "type": "string"},
+                            {"internalType": "uint256", "name": "timestamp", "type": "uint256"}
+                        ],
+                        "internalType": "struct Diary.Entry[]",
+                        "name": "",
+                        "type": "tuple[]"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
+        // Celo Mainnet Configuration
+        const CELO_MAINNET = {
+            chainId: '0xA4EC', // 42220 in hex
+            chainName: 'Celo Mainnet',
+            nativeCurrency: {
+                name: 'CELO',
+                symbol: 'CELO',
+                decimals: 18
+            },
+            rpcUrls: ['https://forno.celo.org'],
+            blockExplorerUrls: ['https://explorer.celo.org']
+        };
+
+        // Global State
+        let provider = null;
+        let signer = null;
+        let contract = null;
+        let userAddress = null;
+
+        // Character counter
+        document.getElementById('entryContent').addEventListener('input', updateCharCount);
+
+        function updateCharCount() {
+            const content = document.getElementById('entryContent').value;
+            document.getElementById('charCount').textContent = content.length;
+        }
+
+        // Section Navigation
+        function showSection(section) {
+            document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+            
+            if (section === 'home') {
+                document.getElementById('homeSection').classList.remove('hidden');
+            } else if (section === 'write') {
+                document.getElementById('writeSection').classList.remove('hidden');
+            } else if (section === 'timeline') {
+                document.getElementById('timelineSection').classList.remove('hidden');
+                if (userAddress) loadTimeline();
+            }
+        }
+
+        // Connect Wallet & Force Celo Mainnet
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('MetaMask is not installed. Please install MetaMask to use this DApp.');
+                    window.open('https://metamask.io/download/', '_blank');
+                    return;
+                }
+
+                // Request account access
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                
+                // Check current network
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                
+                // Force switch to Celo Mainnet if not already on it
+                if (chainId !== CELO_MAINNET.chainId) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: CELO_MAINNET.chainId }],
+                        });
+                    } catch (switchError) {
+                        // Chain not added, so add it
+                        if (switchError.code === 4902) {
+                            await window.ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [CELO_MAINNET],
+                            });
+                        } else {
+                            throw switchError;
+                        }
+                    }
+                }
+
+                // Initialize ethers
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                userAddress = accounts[0];
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+                // Update UI
+                const shortAddress = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+                document.getElementById('connectBtn').innerHTML = `✓ ${shortAddress}`;
+                document.getElementById('connectBtn').classList.add('bg-green-600');
+                document.getElementById('connectBtn').onclick = null;
+
+                showMessage('Successfully connected to Celo Mainnet!', 'success');
+
+                // Listen for account changes
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    if (accounts.length === 0) {
+                        location.reload();
+                    } else {
+                        userAddress = accounts[0];
+                        location.reload();
+                    }
+                });
+
+                // Listen for network changes
+                window.ethereum.on('chainChanged', (chainId) => {
+                    if (chainId !== CELO_MAINNET.chainId) {
+                        alert('Please switch back to Celo Mainnet');
+                        location.reload();
+                    }
+                });
+
+            } catch (error) {
+                console.error('Connection error:', error);
+                showMessage('Failed to connect wallet: ' + error.message, 'error');
+            }
+        }
+
+        // Save Entry to Blockchain
+        async function saveEntry() {
+            if (!contract || !userAddress) {
+                showMessage('Please connect your wallet first!', 'error', 'writeStatus');
+                return;
+            }
+
+            const content = document.getElementById('entryContent').value.trim();
+            
+            if (!content) {
+                showMessage('Please write something before saving!', 'error', 'writeStatus');
+                return;
+            }
+
+            if (content.length < 10) {
+                showMessage('Entry must be at least 10 characters long.', 'error', 'writeStatus');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveBtn');
+            const originalContent = saveBtn.innerHTML;
+            
+            try {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<div class="loading-spinner"></div> <span>Saving to blockchain...</span>';
+                
+                showMessage('Transaction submitted. Waiting for confirmation...', 'info', 'writeStatus');
+
+                const tx = await contract.addEntry(content);
+                await tx.wait();
+
+                showMessage('✓ Entry saved successfully! Your thoughts are now immutable on the blockchain.', 'success', 'writeStatus');
+                
+                // Clear the textarea
+                document.getElementById('entryContent').value = '';
+                updateCharCount();
+
+                // Reload timeline if on that section
+                setTimeout(() => {
+                    document.getElementById('writeStatus').classList.add('hidden');
+                }, 5000);
+
+            } catch (error) {
+                console.error('Save error:', error);
+                let errorMsg = 'Failed to save entry.';
+                
+                if (error.code === 4001) {
+                    errorMsg = 'Transaction rejected by user.';
+                } else if (error.message) {
+                    errorMsg = error.message;
+                }
+                
+                showMessage('Error: ' + errorMsg, 'error', 'writeStatus');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalContent;
+            }
+        }
+
+        // Load Timeline
+        async function loadTimeline() {
+            if (!contract || !userAddress) {
+                document.getElementById('timelineContent').innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <div class="text-6xl mb-4">📔</div>
+                        <p>Connect your wallet to view your entries</p>
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                document.getElementById('timelineContent').innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="loading-spinner mx-auto mb-4"></div>
+                        <p class="text-gray-600">Loading your diary entries...</p>
+                    </div>
+                `;
+
+                const entries = await contract.getEntries(userAddress);
+
+                if (entries.length === 0) {
+                    document.getElementById('timelineContent').innerHTML = `
+                        <div class="text-center py-12 text-gray-500">
+                            <div class="text-6xl mb-4">✍️</div>
+                            <p class="mb-4">You haven't written any entries yet.</p>
+                            <button onclick="showSection('write')" class="btn-primary text-white px-6 py-2 rounded-lg font-medium shadow-lg">
+                                Write Your First Entry
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Sort entries by timestamp (newest first)
+                const sortedEntries = [...entries].reverse();
+
+                let html = '<div class="space-y-4">';
+                
+                sortedEntries.forEach((entry, index) => {
+                    const date = new Date(entry.timestamp.toNumber() * 1000);
+                    const formattedDate = date.toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+
+                    html += `
+                        <div class="entry-card p-6 rounded-lg">
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-2xl">📝</span>
+                                    <span class="font-bold text-amber-800">Entry #${entries.length - index}</span>
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    <div>🕐 ${formattedDate}</div>
+                                    <div class="text-xs text-gray-500 mt-1">Block: ${entry.timestamp.toNumber()}</div>
+                                </div>
+                            </div>
+                            <div class="ink-text leading-relaxed whitespace-pre-wrap">${escapeHtml(entry.content)}</div>
+                            <div class="mt-4 pt-4 border-t border-amber-200 text-xs text-gray-500 italic">
+                                🔒 Immutably stored on Celo blockchain
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+                document.getElementById('timelineContent').innerHTML = html;
+
+            } catch (error) {
+                console.error('Load timeline error:', error);
+                document.getElementById('timelineContent').innerHTML = `
+                    <div class="text-center py-12 text-red-600">
+                        <div class="text-6xl mb-4">⚠️</div>
+                        <p>Failed to load entries. Please try again.</p>
+                        <p class="text-sm mt-2">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Utility Functions
+        function showMessage(message, type, elementId = null) {
+            const alertColors = {
+                success: 'bg-green-100 border-green-500 text-green-800',
+                error: 'bg-red-100 border-red-500 text-red-800',
+                info: 'bg-blue-100 border-blue-500 text-blue-800'
+            };
+
+            if (elementId) {
+                const element = document.getElementById(elementId);
+                element.className = `mt-4 p-4 rounded-lg border-l-4 ${alertColors[type]}`;
+                element.textContent = message;
+                element.classList.remove('hidden');
+            } else {
+                // Show global notification
+                const notification = document.createElement('div');
+                notification.className = `fixed top-20 right-4 p-4 rounded-lg shadow-lg border-l-4 ${alertColors[type]} z-50 max-w-md`;
+                notification.textContent = message;
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.remove();
+                }, 5000);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Check if wallet is already connected on page load
+        window.addEventListener('load', async () => {
+            if (typeof window.ethereum !== 'undefined') {
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    connectWallet();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
